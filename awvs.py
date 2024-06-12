@@ -7,7 +7,7 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning) 
 class awvs_api:
    
-    def __init__(self,self_host,api_key,max_scan=10,wait_time=60):
+    def __init__(self,self_host,api_key,max_scan=10,wait_time=3):
         self.max_scan=max_scan
         self.wait_time=wait_time
         self.pool_list=[]
@@ -55,7 +55,7 @@ class awvs_api:
         target_id = []
 
         r = requests.get(url = total_target_url, headers = headers, verify = False).text
-        
+        print(r)        
          
         for i in url_list:
             data = {
@@ -84,7 +84,7 @@ class awvs_api:
                 }
             r = requests.patch(url = url, data = json.dumps(data), headers = headers, verify = False)
             scans_num = self.get_scans_num(self.dashbord_url, headers) # 获取当前扫描数
-            
+            print("scans_num:"+scans_num)            
             while int(scans_num) >= int(max_num):
                 print('\n当前扫描数已超过最大设定值，等待' + str(sleep_num) + '秒后再次扫描。\n')
                 time.sleep(int(sleep_num))
@@ -114,12 +114,8 @@ class awvs_api:
         添加扫描目标
         '''
         for i in target_id: # 速度设置
-            url = self.self_host+'/api/v1/targets/' + str(i) + '/configuration'
-            data = {
-                    "scan_speed":"moderate"
-                }
-            r = requests.patch(url = url, data = json.dumps(data), headers = headers, verify = False)
-            scans_num = self.get_scans_num(self.dashbord_url, headers) # 获取当前扫描数
+            
+      
             
            
             data = {
@@ -132,8 +128,9 @@ class awvs_api:
                             }
                 }
             r = requests.post(url = add_scan_url, data = json.dumps(data), headers = headers, verify = False).text
-            
-            
+            print("-------------im_add_scans-------------------------")
+            print(r)
+            print("-------------im_add_scans-------------------------")
             #print('添加第' + str(count) + '个目标扫描。\n')
             time.sleep(1)
             
@@ -193,9 +190,11 @@ class awvs_api:
         else:
             pass
         self.pool_list = list(set(self.pool_list))
+        
     def get_list_num(self):
         return len(self.pool_list)
     def pool_scan(self):
+    
         #url = self.self_host+'/api/v1/targets/' + str(i) + '/configuration'
         headers = {
             'X-Auth': self.api_key,
@@ -204,12 +203,17 @@ class awvs_api:
         scans_num = self.get_scans_num(self.dashbord_url, headers) # 获取当前扫描数
             
         while True:
-            scans_num = self.get_scans_num(self.dashbord_url, headers)
-            if (int(scans_num) >= int(self.max_scan)) and len(self.pool_list)>0:   
-                next_scan=self.pool_list.pop(0)
-                target_id = self.add_targets([next_scan], headers, self.total_target_url,f"api_pool_{int(time.time())}")
-                self.im_add_scans(add_scan_url, headers, self.total_target_url, 0, target_id,self.max_scan,self.wait_time)
-            print(f"now scan {scans_num}")
-            time.sleep(self.wait_time)    
+            try:
+                scans_num = self.get_scans_num(self.dashbord_url, headers)
+                if (int(scans_num) <= int(self.max_scan)) and len(self.pool_list)>0:   
+                    next_scan=self.pool_list.pop(0)
+                    target_id = self.add_targets([next_scan], headers, self.total_target_url,f"api_pool_{int(time.time())}")
+                    self.im_add_scans(self.add_scan_url, headers, self.total_target_url, 0, target_id,self.max_scan,self.wait_time)
+                    print(f"add {next_scan}!")
+                print(f"now scan {scans_num}")
+                time.sleep(self.wait_time)    
+            except Exception as error:
+                time.sleep(self.wait_time) 
+                print("An exception occurred:", error) 
 
 
