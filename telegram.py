@@ -8,25 +8,43 @@ from io import BytesIO
 app = Flask(__name__)
 
 TELEGRAM_URL = "https://api.telegram.org/bot"
-TOKEN = "7029587164:AAFbWYN1_i0O_VYy1uaiX5rN8PxB8ahcue8"
+TOKEN = ""
 
-awvs_url='https://20.41.115.237:3443/'
-awvs_key='104fd594feeab42bd9505873633460c55aa464d4c66d24297b8a32d08613f2d7d'
+awvs_url='https://1/'
+awvs_key='11026'
 awvs_scan = awvs_api(awvs_url,awvs_key)
 thread = threading.Thread(target=awvs_scan.pool_scan)
 thread.start()
 
+def get_file_path(file_id):
+    url = f"https://api.telegram.org/bot{TOKEN}/getFile?file_id={file_id}"
+    response = requests.get(url).json()
+    return response['result']['file_path']
 
+
+def download_file(file_path):
+    url = f"https://api.telegram.org/file/bot{TOKEN}/{file_path}"
+    response = requests.get(url)
+    return response.content
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
     req = request.get_json()
     chat_id = req['message']['chat']['id']
-    text = req['message']['text']
-    print(text)
-    return_text=handler_req(chat_id, text)
+    return_text="返回出错"
+    if 'document' in req['message']:
+        document = req['message']['document']
+        file_id = document['file_id']
+        file_name = document['file_name']
+        file_path = get_file_path(file_id)
+        file_bytes = download_file(file_path)
+        cc = file_bytes.decode('utf-8').splitlines()
+        return_text=document_req(chat_id,cc,file_name)
+    else:
+        text = req['message']['text']
+        #print(text)
+        return_text=handler_req(chat_id, text)
     send_message(chat_id, return_text)
-    
     return jsonify(success=True)
 
 
@@ -98,6 +116,15 @@ def oneforall_scan_arr(url_list,chat_id):
     text=f"批量子域名扫描完成,完成了{len(url)}的扫描,并添加到awvs扫描队列成功 目前扫描队列有{now_num}"
     send_message(chat_id, text)
     
+def document_req(chat_id, stearm,file_name):
+    command = file_name
+    print("file_name:"+command)
+    if command == 'plsm.txt':
+        for index in stearm:
+            index=index.strip("")
+            awvs_scan.add_pool(index)
+    now_num=awvs_scan.get_list_num()
+    return f"运行批量添加文件到awvs完成,目前队列有{now_num}!"        
     
 def handler_req(chat_id, text):
     parts = text.split()
@@ -105,7 +132,7 @@ def handler_req(chat_id, text):
         return "输入不正确"
     command = parts[0]
     if command == 'help':
-        return "你现在可以使用我来进行半自动扫描! 目前的命令有  ljsm(立即扫描 将一个url地址立即添加到awvs扫描!)   zysm(子域扫描 首先爆破子域名  提取用title的子域名推送到awvs 但有队列)  lzysm(list子域名扫描 多个子域名扫描 使用,分割多个扫描 然后子域名 然后推awvs )  zym(单纯的子域名扫描  扫描完成后发个文件回来!) "
+        return "你现在可以使用我来进行半自动扫描! 目前的命令有  ljsm(立即扫描 将一个url地址立即添加到awvs扫描!)   zysm(子域扫描 首先爆破子域名  提取用title的子域名推送到awvs 但有队列)  lzysm(list子域名扫描 多个子域名扫描 使用,分割多个扫描 然后子域名 然后推awvs )  zym(单纯的子域名扫描  扫描完成后发个文件回来!) 如果发送了一个文件名为plsm.txt的文件 则会将文件内的每一行推送到扫描池! "
     elif command == 'sm':
         if len(parts) < 2:
             return "参数不足"
@@ -124,6 +151,14 @@ def handler_req(chat_id, text):
             return "参数不足"
         rpym_thread = threading.Thread(target=im_add_awvs_s,args=(parts[1],chat_id,))
         rpym_thread.start()
+        return f"正在运行立即添加到awvs,完成后会回复!"
+    elif command == 'pljsm':
+        if len(parts) < 2:
+            return "参数不足"
+        a=parts[1].splits(',')
+        for index in  a:
+            rpym_thread = threading.Thread(target=im_add_awvs_s,args=(index,chat_id,))
+            rpym_thread.start()
         return f"正在运行立即添加到awvs,完成后会回复!"
     elif command == 'lzysm':
         if len(parts) < 2:
