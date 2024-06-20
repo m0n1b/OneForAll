@@ -18,7 +18,7 @@ class awvs_api:
         self.add_scan_url=add_scan_url
         self.api_key=api_key
         self.total_target_url = self.self_host+'/api/v1/targets' 
-
+        
     def get_scans_num(self,url, headers):
 
         '''
@@ -191,8 +191,14 @@ class awvs_api:
             pass
         self.pool_list = list(set(self.pool_list))
         
+    def get_pool(self):
+        return self.pool_list
+        
     def get_list_num(self):
         return len(self.pool_list)
+    def clean_all(self):
+        self.pool_list.clear()
+        return  True
     def pool_scan(self):
     
         #url = self.self_host+'/api/v1/targets/' + str(i) + '/configuration'

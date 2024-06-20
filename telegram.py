@@ -8,10 +8,10 @@ from io import BytesIO
 app = Flask(__name__)
 
 TELEGRAM_URL = "https://api.telegram.org/bot"
-TOKEN = ""
+TOKEN = "7029587164:AAFbWYN1_i0O_VYy1uaiX5rN8PxB8ahcue8"
 
-awvs_url='https://1/'
-awvs_key='11026'
+awvs_url='https://166.0.244.112:3443'
+awvs_key='13325a4a75f5a4b5ab8dc0480b93938c5dd3d229219ca46a88266f4f0d733400f'
 awvs_scan = awvs_api(awvs_url,awvs_key)
 thread = threading.Thread(target=awvs_scan.pool_scan)
 thread.start()
@@ -101,6 +101,13 @@ def only_oneforall_scan(url,chat_id):
     result_file = BytesIO(result_string.encode('utf-8'))
     result_file.name = f"{url}.txt" 
     send_file_to_telegram(chat_id, result_file)
+
+def get_file_scan(url,chat_id):
+    result=awvs_scan.get_pool()
+    result_string = '\n'.join(result)
+    result_file = BytesIO(result_string.encode('utf-8'))
+    result_file.name = f"{url}.txt" 
+    send_file_to_telegram(chat_id, result_file)
     
 def im_add_awvs_s(url,chat_id):
     awvs_scan.im_add_scans_out([url])
@@ -132,7 +139,7 @@ def handler_req(chat_id, text):
         return "输入不正确"
     command = parts[0]
     if command == 'help':
-        return "你现在可以使用我来进行半自动扫描! 目前的命令有  ljsm(立即扫描 将一个url地址立即添加到awvs扫描!)   zysm(子域扫描 首先爆破子域名  提取用title的子域名推送到awvs 但有队列)  lzysm(list子域名扫描 多个子域名扫描 使用,分割多个扫描 然后子域名 然后推awvs )  zym(单纯的子域名扫描  扫描完成后发个文件回来!) 如果发送了一个文件名为plsm.txt的文件 则会将文件内的每一行推送到扫描池! "
+        return "你现在可以使用我来进行半自动扫描! 目前的命令有  ljsm(立即扫描 将一个url地址立即添加到awvs扫描!)   zysm(子域扫描 首先爆破子域名  提取用title的子域名推送到awvs 但有队列)  lzysm(list子域名扫描 多个子域名扫描 使用,分割多个扫描 然后子域名 然后推awvs )  zym(单纯的子域名扫描  扫描完成后发个文件回来!) 如果发送了一个文件名为plsm.txt的文件 则会将文件内的每一行推送到扫描池!  status 获取当前正在的扫描数,getscan  将返回正在扫描的目标的txt文件,clear 清除所有的扫描;(如果要更新扫描 可以配合使用getscan 首先下载目标txt文件,然后clear清除 最后把更改的txt文件更名为plsm.txt 上传到机器人 就更新成功了)"
     elif command == 'sm':
         if len(parts) < 2:
             return "参数不足"
@@ -174,6 +181,19 @@ def handler_req(chat_id, text):
         onlyym_thread = threading.Thread(target=only_oneforall_scan,args=(parts[1],chat_id,))
         onlyym_thread.start()    
         return f"正在运行子域名扫描,完成后会回复文件!"
+    elif command == 'getscan':
+        onlyym_thread = threading.Thread(target=get_file_scan,args=("getscan_result",chat_id,))
+        onlyym_thread.start()    
+        return f"正在获取扫描的所有内容,完成后会回复文件!"
+    elif command == 'status':
+        scan_num=awvs_scan.get_list_num()
+        return f"当前扫描数为{scan_num}"
+    elif command == 'clear':
+        scan_return=awvs_scan.clean_all()
+        scan_num=awvs_scan.get_list_num()
+        return f"完成清除,当前扫描数为{scan_num}"
+
+        
     else:
         return "当前不支持"
 
