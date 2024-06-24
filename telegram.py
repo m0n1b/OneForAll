@@ -8,10 +8,10 @@ from io import BytesIO
 app = Flask(__name__)
 
 TELEGRAM_URL = "https://api.telegram.org/bot"
-TOKEN = "6808273483:AAEi8VewCp4JLGPwjjPnMNudWxzDv5lI0SQ"
+TOKEN = ""
 
-awvs_url='https://119.59.101.72:3443/'
-awvs_key='1986ad8c0a5b3df4d7028d5f3c06e936c14d1e3355a6046ff8b30e0accb04ca98'
+awvs_url='https:'
+awvs_key=''
 awvs_scan = awvs_api(awvs_url,awvs_key)
 thread = threading.Thread(target=awvs_scan.pool_scan)
 thread.start()
