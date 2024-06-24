@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+﻿from flask import Flask, request, jsonify
 import requests,threading
 from awvs import awvs_api  
 from oneforall import OneForAll
@@ -8,10 +8,10 @@ from io import BytesIO
 app = Flask(__name__)
 
 TELEGRAM_URL = "https://api.telegram.org/bot"
-TOKEN = "7029587164:"
+TOKEN = "6808273483:AAEi8VewCp4JLGPwjjPnMNudWxzDv5lI0SQ"
 
-awvs_url='https://1:3443'
-awvs_key=''
+awvs_url='https://119.59.101.72:3443/'
+awvs_key='1986ad8c0a5b3df4d7028d5f3c06e936c14d1e3355a6046ff8b30e0accb04ca98'
 awvs_scan = awvs_api(awvs_url,awvs_key)
 thread = threading.Thread(target=awvs_scan.pool_scan)
 thread.start()
@@ -94,6 +94,21 @@ def oneforall_scan(url,chat_id):
     now_num=awvs_scan.get_list_num()
     text=f"{url}子域名扫描完成,扫描到{len(result)}子域名,并添加到awvs扫描队列成功 目前扫描队列有{now_num}"
     send_message(chat_id, text)
+
+
+def clean_req(chat_id):
+    awvs_scan.del_tasks()
+    text=f"全部删除完成!"
+    send_message(chat_id, text)
+
+def report_req(chat_id):
+    
+    text=awvs_scan.message_push()
+    print(chat_id)
+    print(text)
+    send_message(chat_id, text[0:2000])
+    
+    
     
 def only_oneforall_scan(url,chat_id):
     result=oneforall(url)
@@ -139,13 +154,24 @@ def handler_req(chat_id, text):
         return "输入不正确"
     command = parts[0]
     if command == 'help':
-        return "你现在可以使用我来进行半自动扫描! 目前的命令有  ljsm(立即扫描 将一个url地址立即添加到awvs扫描!)   zysm(子域扫描 首先爆破子域名  提取用title的子域名推送到awvs 但有队列)  lzysm(list子域名扫描 多个子域名扫描 使用,分割多个扫描 然后子域名 然后推awvs )  zym(单纯的子域名扫描  扫描完成后发个文件回来!) 如果发送了一个文件名为plsm.txt的文件 则会将文件内的每一行推送到扫描池!  status 获取当前正在的扫描数,getscan  将返回正在扫描的目标的txt文件,clear 清除所有的扫描;(如果要更新扫描 可以配合使用getscan 首先下载目标txt文件,然后clear清除 最后把更改的txt文件更名为plsm.txt 上传到机器人 就更新成功了)"
+        return "你现在可以使用我来进行半自动扫描! 目前的命令有  ljsm(立即扫描 将一个url地址立即添加到awvs扫描!)   zysm(子域扫描 首先爆破子域名  提取用title的子域名推送到awvs 但有队列)  lzysm(list子域名扫描 多个子域名扫描 使用,分割多个扫描 然后子域名 然后推awvs )  zym(单纯的子域名扫描  扫描完成后发个文件回来!) 如果发送了一个文件名为plsm.txt的文件 则会将文件内的每一行推送到扫描池!  status 获取当前正在的扫描数,getscan  将返回正在扫描的目标的txt文件,clear 清除所有的扫描;(如果要更新扫描 可以配合使用getscan 首先下载目标txt文件,然后clear清除 最后把更改的txt文件更名为plsm.txt 上传到机器人 就更新成功了) clear_r 删除所有扫描 vul查看当前漏洞简报"
     elif command == 'sm':
         if len(parts) < 2:
             return "参数不足"
         awvs_scan.add_pool(parts[1])
         now_num=awvs_scan.get_list_num()
         return f"添加到队列成功 目前队列有{now_num}"
+    elif command == 'clear_r':
+        clear_thread = threading.Thread(target=clean_req,args=(chat_id,))
+        clear_thread.start()
+        return f"开始删除!"
+
+    elif command == 'vul':
+        re_thread = threading.Thread(target=report_req,args=(chat_id,))
+        re_thread.start()
+        return f"开始获取漏洞简报!"
+
+    
     elif command=="zysm":
         if len(parts) < 2:
             return "参数不足"
@@ -206,7 +232,8 @@ def send_message(chat_id, text):
         'chat_id': chat_id,
         'text': text
     }
-    requests.post(url, json=payload)
+    res=requests.post(url, json=payload)
+    print(res.text)
 
 
 @app.route('/upload', methods=['POST'])

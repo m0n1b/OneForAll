@@ -4,6 +4,8 @@ import sys
 import requests
 import argparse
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
+import socket
+from time import strftime,gmtime
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning) 
 class awvs_api:
    
@@ -92,7 +94,7 @@ class awvs_api:
            
             data = {
                     "target_id": str(i),
-                    "profile_id": "11111111-1111-1111-1111-111111111111",
+                    "profile_id": "11111111-1111-1111-1111-111111111119",
                     "schedule": {
                                     "disable":False,
                                     "start_date":None,
@@ -120,7 +122,7 @@ class awvs_api:
            
             data = {
                     "target_id": str(i),
-                    "profile_id": "11111111-1111-1111-1111-111111111111",
+                    "profile_id": "11111111-1111-1111-1111-111111111119",
                     "schedule": {
                                     "disable":False,
                                     "start_date":None,
@@ -133,7 +135,70 @@ class awvs_api:
             print("-------------im_add_scans-------------------------")
             #print('添加第' + str(count) + '个目标扫描。\n')
             time.sleep(1)
+    
+    def del_tasks(self):
+        aheaders = {
+            'X-Auth': self.api_key,
+            'Content-type': 'application/json'
+        }
+        try:
+            # 获取所有目标信息
             
+            delreq = requests.get(url=self.self_host + "/api/v1/targets",
+                                  headers=aheaders,
+                                  timeout=30,
+                                  verify=False)
+        except Exception as e:
+            print(self.self_host + "/api/v1/targets", e)
+        if delreq and delreq.status_code == 200:
+            now_targets = delreq.json()
+            if now_targets['pagination']['count'] == 0:
+                return True
+                #print("已经全部清除")
+            else:
+                for tid in range(now_targets['pagination']['count']):
+                    targets_id =""
+                    try:
+                        targets_id = now_targets['targets'][tid]['target_id']
+                        del_target = requests.delete(url=self.self_host + "/api/v1/targets/" + targets_id,
+                                                     headers=aheaders,
+                                                     timeout=30,
+                                                     verify=False)
+                        if del_target and del_target.status_code == 204:
+                            pass
+                    except Exception as e:
+                        #print("for tid in range(now_targets['pagination']['count'])")
+                        pass
+                
+                if self.del_tasks():
+                    print("self.del_tasks()")
+                    return True
+                else:
+                    return False
+                    
+                    
+
+    def message_push(self):
+        try:
+            print("hree")
+            headers = {
+            'X-Auth': self.api_key,
+            'Content-type': 'application/json'
+            }
+            get_target_url=self.self_host+'/api/v1/vulnerability_types?l=100&q=status:open;severity:3;'
+            r = requests.get(get_target_url, headers=headers, timeout=30, verify=False)
+            result = json.loads(r.content.decode())
+            #print(result)
+            init_high_count = 0
+            current_date = str(strftime("%Y-%m-%d %H:%M:%S", gmtime()))
+            message_push=str(socket.gethostname())+'\n'+current_date+'\n'
+            for xxxx in result['vulnerability_types']:
+                message_push = message_push+'漏洞: ' + xxxx['name'] + '数量: '+str(xxxx['count'])+'\n'
+            
+            return message_push
+        except Exception as e:
+                        print(e)
+                
     def im_add_scans_out(self, target_list):
         '''
         添加扫描目标
@@ -154,7 +219,7 @@ class awvs_api:
            
             data = {
                     "target_id": str(i),
-                    "profile_id": "11111111-1111-1111-1111-111111111111",
+                    "profile_id": "11111111-1111-1111-1111-111111111119",
                     "schedule": {
                                     "disable":False,
                                     "start_date":None,
