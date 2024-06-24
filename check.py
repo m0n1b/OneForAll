@@ -9,8 +9,8 @@ import sqlite3
 
 
 # Telegram Bot Setup
-TELEGRAM_TOKEN = '7481588348:AAHXz_PB4haHyjOhzdEZegxkckyTFBQ5dPo'  # Replace with your bot's token
-TELEGRAM_CHAT_ID = '-4200200606'  # Replace with your chat ID
+TELEGRAM_TOKEN = ''  # Replace with your bot's token
+TELEGRAM_CHAT_ID = '-4'  # Replace with your chat ID
 
 def send_telegram_notification(url):
     message = f"网站检测失败,请排查,这个网站将在两个小时候重新检查:{url}"
@@ -136,7 +136,7 @@ def login():
     if request.method == 'POST':
  
         password = request.form['password']
-        if  password == "Aw121212!!!":
+        if  password == "Aw1x":
             user = User("admin")
             login_user(user)
             return redirect(url_for('manage_tasks'))
