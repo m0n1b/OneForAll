@@ -366,7 +366,7 @@ class awvs_api:
             response = requests.get(url=url, headers=headers, verify=False)
             response.raise_for_status()  # Raises HTTPError for bad responses
             profiles_data = response.json()
-            
+            #print(profiles_data)
             for profile in profiles_data['scanning_profiles']:
                 
                 
@@ -374,7 +374,7 @@ class awvs_api:
                     
                     return profile['profile_id']
             
-            return "No profile found with the name: {}".format(name)
+            return -1
         
         except requests.exceptions.HTTPError as errh:
             return False
@@ -405,11 +405,11 @@ class awvs_api:
             #print(response.text)
             response.raise_for_status()  # Raises HTTPError for bad responses
             profiles_data = response.json()
-            
+            #print(profiles_data)
             if profiles_data['profile_id']:
                return profiles_data['profile_id']
             else:
-                return -1
+                return False
            
         
         except requests.exceptions.HTTPError as errh:
