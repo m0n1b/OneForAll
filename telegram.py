@@ -1,4 +1,4 @@
-﻿from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify
 import requests,threading
 from awvs import awvs_api  
 from oneforall import OneForAll
@@ -13,8 +13,15 @@ TOKEN = ""
 awvs_url='https:'
 awvs_key=''
 awvs_scan = awvs_api(awvs_url,awvs_key)
+
+awvs_scan.profiles_id=awvs_scan.get_profiles_set("77")
+
+
 thread = threading.Thread(target=awvs_scan.pool_scan)
 thread.start()
+thread1 = threading.Thread(target=awvs_scan.check_scan_timeout_loop)
+thread1.start()
+
 
 def get_file_path(file_id):
     url = f"https://api.telegram.org/bot{TOKEN}/getFile?file_id={file_id}"
@@ -145,8 +152,14 @@ def document_req(chat_id, stearm,file_name):
         for index in stearm:
             index=index.strip("")
             awvs_scan.add_pool(index)
-    now_num=awvs_scan.get_list_num()
-    return f"运行批量添加文件到awvs完成,目前队列有{now_num}!"        
+        now_num=awvs_scan.get_list_num()
+        return f"运行批量添加文件到awvs完成,目前队列有{now_num}!" 
+    if command == 'plzym.txt':  
+        for index in stearm:
+            index=index.strip("")
+            threading.Thread(target=oneforall_scan,args=(index,chat_id,)).start()
+        now_num=awvs_scan.get_list_num()
+        return f"运行批量添加子域名到awvs完成,请等待回复,目前队列有{now_num}!" 
     
 def handler_req(chat_id, text):
     parts = text.split()
@@ -154,7 +167,7 @@ def handler_req(chat_id, text):
         return "输入不正确"
     command = parts[0]
     if command == 'help':
-        return "你现在可以使用我来进行半自动扫描! 目前的命令有  ljsm(立即扫描 将一个url地址立即添加到awvs扫描!)   zysm(子域扫描 首先爆破子域名  提取用title的子域名推送到awvs 但有队列)  lzysm(list子域名扫描 多个子域名扫描 使用,分割多个扫描 然后子域名 然后推awvs )  zym(单纯的子域名扫描  扫描完成后发个文件回来!) 如果发送了一个文件名为plsm.txt的文件 则会将文件内的每一行推送到扫描池!  status 获取当前正在的扫描数,getscan  将返回正在扫描的目标的txt文件,clear 清除所有的扫描;(如果要更新扫描 可以配合使用getscan 首先下载目标txt文件,然后clear清除 最后把更改的txt文件更名为plsm.txt 上传到机器人 就更新成功了) clear_r 删除所有扫描 vul查看当前漏洞简报"
+        return "你现在可以使用我来进行半自动扫描! 目前的命令有  ljsm(立即扫描 将一个url地址立即添加到awvs扫描!)   zysm(子域扫描 首先爆破子域名  提取用title的子域名推送到awvs 但有队列)  lzysm(list子域名扫描 多个子域名扫描 使用,分割多个扫描 然后子域名 然后推awvs )  zym(单纯的子域名扫描  扫描完成后发个文件回来!) 如果发送了一个文件名为plsm.txt的文件 则会将文件内的每一行推送到扫描池!  status 获取当前正在的扫描数,getscan  将返回正在扫描的目标的txt文件,clear 清除所有的扫描;(如果要更新扫描 可以配合使用getscan 首先下载目标txt文件,然后clear清除 最后把更改的txt文件更名为plsm.txt 上传到机器人 就更新成功了) clear_r 删除所有扫描 vul查看当前漏洞简报;plzym.txt上传文件为批量子域名扫描!"
     elif command == 'sm':
         if len(parts) < 2:
             return "参数不足"
