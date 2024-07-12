@@ -5,6 +5,8 @@ import requests
 import argparse
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 import socket
+from datetime import datetime, timedelta
+import pytz
 from time import strftime,gmtime
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning) 
 class awvs_api:
@@ -20,6 +22,7 @@ class awvs_api:
         self.add_scan_url=add_scan_url
         self.api_key=api_key
         self.total_target_url = self.self_host+'/api/v1/targets' 
+        self.profiles_id="11111111-1111-1111-1111-111111111119"
         
     def get_scans_num(self,url, headers):
 
@@ -94,7 +97,7 @@ class awvs_api:
            
             data = {
                     "target_id": str(i),
-                    "profile_id": "11111111-1111-1111-1111-111111111119",
+                    "profile_id": self.profiles_id,
                     "schedule": {
                                     "disable":False,
                                     "start_date":None,
@@ -122,7 +125,7 @@ class awvs_api:
            
             data = {
                     "target_id": str(i),
-                    "profile_id": "11111111-1111-1111-1111-111111111119",
+                    "profile_id": self.profiles_id,
                     "schedule": {
                                     "disable":False,
                                     "start_date":None,
@@ -219,7 +222,7 @@ class awvs_api:
            
             data = {
                     "target_id": str(i),
-                    "profile_id": "11111111-1111-1111-1111-111111111119",
+                    "profile_id": self.profiles_id,
                     "schedule": {
                                     "disable":False,
                                     "start_date":None,
@@ -264,6 +267,177 @@ class awvs_api:
     def clean_all(self):
         self.pool_list.clear()
         return  True
+    
+    def get_now_scan(self):
+        headers = {
+            'X-Auth': self.api_key,
+            'Content-type': 'application/json'
+        }
+        url = self.self_host + f'/api/v1/scans?l=100&q=status:processing;&s=status:asc'
+        try:
+            response = requests.get(url=url, headers=headers, verify=False)
+            response.raise_for_status()  # Raises HTTPError for bad responses
+            profiles_data = response.json()
+            return profiles_data
+        except requests.exceptions.HTTPError as errh:
+            return False
+        except requests.exceptions.ConnectionError as errc:
+            return False
+        except requests.exceptions.Timeout as errt:
+            return False
+        except requests.exceptions.RequestException as err:
+            return False
+        except json.JSONDecodeError:
+            return False
+        except KeyError:
+            return False
+        except Exception as e:
+            return False
+
+        return False
+    
+    def check_scan_timeout(self,data):
+        now = datetime.now(pytz.utc)
+
+        # 遍历扫描数组
+        for scan in data['scans']:
+            start_date_str = scan['current_session']['start_date']
+            start_date = datetime.fromisoformat(start_date_str.replace("Z", "+00:00"))
+
+            # 计算时间差
+            delta = now - start_date
+            if delta > timedelta(hours=1):
+                
+                if self.abort_scan(scan['target_id']):
+                    continue
+                else:
+                    print(f"del {scan['target_id']} false!")
+                
+            
+    def check_scan_timeout_loop(self):      
+        while True:
+            try:
+                data=self.get_now_scan()
+                if data:
+                    self.check_scan_timeout(data)
+                time.sleep(self.wait_time*100)    
+            except Exception as error:
+                time.sleep(self.wait_time*100) 
+                print("An exception occurred:", error) 
+
+    def abort_scan(self,target_id):
+        headers = {
+            'X-Auth': self.api_key,
+            'Content-type': 'application/json'
+        }
+        url = self.self_host + f'/api/v1/scans/{target_id}/abort'
+     
+        try:
+            response = requests.post(url=url, headers=headers, verify=False)
+            response.raise_for_status()  # Raises HTTPError for bad responses
+            profiles_data = response.json()
+            return True
+        except requests.exceptions.HTTPError as errh:
+            return False
+        except requests.exceptions.ConnectionError as errc:
+            return False
+        except requests.exceptions.Timeout as errt:
+            return False
+        except requests.exceptions.RequestException as err:
+            return False
+        except json.JSONDecodeError:
+            return False
+        except KeyError:
+            return False
+        except Exception as e:
+            return False
+
+        return False
+
+
+    def get_profiles(self, name="33"):
+        headers = {
+            'X-Auth': self.api_key,
+            'Content-type': 'application/json'
+        }
+        url = self.self_host + '/api/v1/scanning_profiles'
+        
+        try:
+            response = requests.get(url=url, headers=headers, verify=False)
+            response.raise_for_status()  # Raises HTTPError for bad responses
+            profiles_data = response.json()
+            
+            for profile in profiles_data['scanning_profiles']:
+                
+                
+                if profile['name'] == name:
+                    
+                    return profile['profile_id']
+            
+            return "No profile found with the name: {}".format(name)
+        
+        except requests.exceptions.HTTPError as errh:
+            return False
+        except requests.exceptions.ConnectionError as errc:
+            return False
+        except requests.exceptions.Timeout as errt:
+            return False
+        except requests.exceptions.RequestException as err:
+            return False
+        except json.JSONDecodeError:
+            return False
+        except KeyError:
+            return False
+        except Exception as e:
+            return False
+
+        return False
+
+    def set_profiles(self,name="33"):
+        headers = {
+            'X-Auth': self.api_key,
+            'Content-type': 'application/json'
+        }
+        url = self.self_host + '/api/v1/scanning_profiles'
+        put_json={"name":name,"custom":True,"checks":["wvs/Scripts/PerFile/Javascript_AST_Parse.script","wvs/Scripts/PerFile/Javascript_Libraries_Audit.script","wvs/Scripts/PerScheme/Blind_XSS.script","wvs/Scripts/PerScheme/HTTP_Parameter_Pollution.script","wvs/Scripts/PerScheme/XSS.script","wvs/location/cors_origin_validation.js","wvs/httpdata/mitreid_connect_ssrf_CVE-2021-26715.js","wvs/target/ssltest","wvs/target/http_redirections.js","wvs/Scripts/PerServer/SSL_Audit.script","wvs/Scripts/PerScheme/CRLF_Injection.script","wvs/Scripts/PerScheme/Remote_File_Inclusion_XSS.script","wvs/Scripts/PerScheme/SSRF_in_SSR.script","wvs/Scripts/PerServer/CRLF_Injection_PerServer.script","wvs/Scripts/PostScan/2-Stored_XSS.script","wvs/RPA/InsecureTransition.js","wvs/RPA/Cookie_Without_HttpOnly.js","wvs/RPA/Cookie_Without_Secure.js","wvs/RPA/Cookie_On_Parent_Domain.js","wvs/RPA/no_https.js","wvs/Crawler/12-Crawler_HTTPS_weak_key_length.js","wvs/Crawler/HTTPS_insecure_maxTLS.js","wvs/httpdata/header_reflected_in_cached_response.js","wvs/httpdata/insecure_referrer_policy.js","wvs/httpdata/content_security_policy.js","wvs/httpdata/cors_acao.js","wvs/httpdata/csp_report_uri.js","wvs/target/aux_systems_ssrf.js","wvs/target/proxy_misrouting_ssrf.js","wvs/target/request_smuggling.js","wvs/target/http2/http2_pseudo_header_ssrf.js","wvs/deepscan/dom_xss","wvs/deepscan/javascript_library_audit_deepscan.js","ovas/"]}
+        try:
+            response = requests.post(url=url, headers=headers, verify=False,json=put_json)
+            #print(response.text)
+            response.raise_for_status()  # Raises HTTPError for bad responses
+            profiles_data = response.json()
+            
+            if profiles_data['profile_id']:
+               return profiles_data['profile_id']
+            else:
+                return -1
+           
+        
+        except requests.exceptions.HTTPError as errh:
+            return None
+        except requests.exceptions.ConnectionError as errc:
+            return None
+        except requests.exceptions.Timeout as errt:
+            return None
+        except requests.exceptions.RequestException as err:
+            return None
+        except json.JSONDecodeError:
+            return None
+        except KeyError:
+            return None
+        except Exception as e:
+            return None
+        
+    def get_profiles_set(self,name="33"):
+        profiles_id=self.get_profiles(name)
+        if(profiles_id==-1):
+            profiles_id=self.set_profiles(name)
+        if(profiles_id==False):
+            print("can't get profiles id!!!")
+            exit(0)
+        return profiles_id
+    
+
+
     def pool_scan(self):
     
         #url = self.self_host+'/api/v1/targets/' + str(i) + '/configuration'
