@@ -22,7 +22,7 @@ class awvs_api:
         self.add_scan_url=add_scan_url
         self.api_key=api_key
         self.total_target_url = self.self_host+'/api/v1/targets' 
-        self.profiles_id="11111111-1111-1111-1111-111111111119"
+        self.profiles_id=self.get_profiles_set("77")
         
     def get_scans_num(self,url, headers):
 
@@ -308,10 +308,10 @@ class awvs_api:
             delta = now - start_date
             if delta > timedelta(hours=1):
                 
-                if self.abort_scan(scan['target_id']):
+                if self.abort_scan(scan['scan_id']):
                     continue
                 else:
-                    print(f"del {scan['target_id']} false!")
+                    print(f"del {scan['scan_id']} false!")
                 
             
     def check_scan_timeout_loop(self):      
@@ -335,22 +335,11 @@ class awvs_api:
         try:
             response = requests.post(url=url, headers=headers, verify=False)
             response.raise_for_status()  # Raises HTTPError for bad responses
-            profiles_data = response.json()
+            #profiles_data = response.json()
+            print(response.text)
             return True
-        except requests.exceptions.HTTPError as errh:
-            return False
-        except requests.exceptions.ConnectionError as errc:
-            return False
-        except requests.exceptions.Timeout as errt:
-            return False
-        except requests.exceptions.RequestException as err:
-            return False
-        except json.JSONDecodeError:
-            return False
-        except KeyError:
-            return False
         except Exception as e:
-            return False
+            print(e)
 
         return False
 
