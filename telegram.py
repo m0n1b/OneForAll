@@ -10,11 +10,11 @@ app = Flask(__name__)
 TELEGRAM_URL = "https://api.telegram.org/bot"
 TOKEN = ""
 
-awvs_url='https:'
+awvs_url='https://82.1.'
 awvs_key=''
 awvs_scan = awvs_api(awvs_url,awvs_key)
 
-awvs_scan.profiles_id=awvs_scan.get_profiles_set("77")
+
 
 
 thread = threading.Thread(target=awvs_scan.pool_scan)
