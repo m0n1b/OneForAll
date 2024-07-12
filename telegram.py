@@ -36,23 +36,26 @@ def download_file(file_path):
 
 @app.route('/webhook', methods=['POST'])
 def webhook():
-    req = request.get_json()
-    chat_id = req['message']['chat']['id']
-    return_text="返回出错"
-    if 'document' in req['message']:
-        document = req['message']['document']
-        file_id = document['file_id']
-        file_name = document['file_name']
-        file_path = get_file_path(file_id)
-        file_bytes = download_file(file_path)
-        cc = file_bytes.decode('utf-8').splitlines()
-        return_text=document_req(chat_id,cc,file_name)
-    else:
-        text = req['message']['text']
-        #print(text)
-        return_text=handler_req(chat_id, text)
-    send_message(chat_id, return_text)
-    return jsonify(success=True)
+    try:
+        req = request.get_json()
+        chat_id = req['message']['chat']['id']
+        return_text="返回出错"
+        if 'document' in req['message']:
+            document = req['message']['document']
+            file_id = document['file_id']
+            file_name = document['file_name']
+            file_path = get_file_path(file_id)
+            file_bytes = download_file(file_path)
+            cc = file_bytes.decode('utf-8').splitlines()
+            return_text=document_req(chat_id,cc,file_name)
+        else:
+            text = req['message']['text']
+            #print(text)
+            return_text=handler_req(chat_id, text)
+        send_message(chat_id, return_text)
+        return jsonify(success=True)
+    except:
+        return ""
 
 
 def oneforall(domain):
