@@ -3,15 +3,16 @@ import requests,threading
 from awvs import awvs_api  
 from oneforall import OneForAll
 from io import BytesIO
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 
 app = Flask(__name__)
 
 TELEGRAM_URL = "https://api.telegram.org/bot"
-TOKEN = ""
+TOKEN = "7308159269:AAGY0RYNN2K_uxMN6tUfgNVzsazl-yVxeWw"
 
-awvs_url='https://82.1.'
-awvs_key=''
+awvs_url='https://82.180.145.40:3443'
+awvs_key='1986ad8c0a5b3df4d7028d5f3c06e936c5c362c2aee7c4f0d8937632df14db420'
 awvs_scan = awvs_api(awvs_url,awvs_key)
 
 
@@ -63,8 +64,8 @@ def oneforall(domain):
     test.dns = True
     test.brute = True
     test.req = True
-    test.takeover = True
-    test.alive = True
+    test.takeover = False
+    test.alive = False
     test.run()
     results = test.datas
     #print(results)
@@ -81,8 +82,8 @@ def oneforall_scan_i(domain):
     test.dns = True
     test.brute = True
     test.req = True
-    test.takeover = True
-    test.alive = True
+    test.takeover = False
+    test.alive = False
     test.run()
     results = test.datas
     #print(results)
@@ -148,6 +149,25 @@ def oneforall_scan_arr(url_list,chat_id):
     text=f"批量子域名扫描完成,完成了{len(url)}的扫描,并添加到awvs扫描队列成功 目前扫描队列有{now_num}"
     send_message(chat_id, text)
     
+
+
+def process_index(index,chat_id):
+    index = index.strip()
+    oneforall_scan(index, chat_id)
+
+def manage_thread_pool(stream,chat_id):
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        # Map tasks to the executor
+        futures = {executor.submit(process_index, index,chat_id) for index in stream}
+        # Optionally, process results as they complete (if needed)
+        for future in as_completed(futures):
+            result = future.result()  # This will hold the result of each task
+
+    now_num = awvs_scan.get_list_num()
+
+
+
+    
 def document_req(chat_id, stearm,file_name):
     command = file_name
     print("file_name:"+command)
@@ -157,10 +177,11 @@ def document_req(chat_id, stearm,file_name):
             awvs_scan.add_pool(index)
         now_num=awvs_scan.get_list_num()
         return f"运行批量添加文件到awvs完成,目前队列有{now_num}!" 
-    if command == 'plzym.txt':  
-        for index in stearm:
-            index=index.strip("")
-            threading.Thread(target=oneforall_scan,args=(index,chat_id,)).start()
+    if command == 'plzym.txt':
+        threading.Thread(target=manage_thread_pool, args=(stearm,chat_id,)).start()    
+        # for index in stearm:
+            # index=index.strip("")
+            # threading.Thread(target=oneforall_scan,args=(index,chat_id,)).start()
         now_num=awvs_scan.get_list_num()
         return f"运行批量添加子域名到awvs完成,请等待回复,目前队列有{now_num}!" 
     
@@ -281,3 +302,4 @@ def send_file_to_telegram(chat_id, file):
 if __name__ == '__main__':
     
     app.run(host="0.0.0.0",port=80)
+
