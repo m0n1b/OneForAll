@@ -9,10 +9,10 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 app = Flask(__name__)
 
 TELEGRAM_URL = "https://api.telegram.org/bot"
-TOKEN = "7308159269:AAGY0RYNN2K_uxMN6tUfgNVzsazl-yVxeWw"
+TOKEN = ""
 
-awvs_url='https://82.180.145.40:3443'
-awvs_key='1986ad8c0a5b3df4d7028d5f3c06e936c5c362c2aee7c4f0d8937632df14db420'
+awvs_url='https://3'
+awvs_key='1986'
 awvs_scan = awvs_api(awvs_url,awvs_key)
 
 
