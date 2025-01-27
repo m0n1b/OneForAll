@@ -101,12 +101,12 @@ def oneforall_scan_i(domain):
 
 def oneforall_scan(url,chat_id):
     result=oneforall_scan_i(url)
+    len_result=0
     if(len(result)<100):
         awvs_scan.add_pool(result)
-    else:
-        result=[]
+        len_result=len(result)
     now_num=awvs_scan.get_list_num()
-    text=f"{url}子域名扫描完成,扫描到{len(result)}子域名,并添加到awvs扫描队列成功 目前扫描队列有{now_num}"
+    text=f"{url}子域名扫描完成,扫描到{len_result}子域名,并添加到awvs扫描队列成功 目前扫描队列有{now_num}"
     send_message(chat_id, text)
 
 
@@ -156,7 +156,10 @@ def oneforall_scan_arr(url_list,chat_id):
 
 def process_index(index,chat_id):
     index = index.strip()
-    oneforall_scan(index, chat_id)
+    try:
+        oneforall_scan(index, chat_id)
+    except:
+        print("P e")
 
 def manage_thread_pool(stream,chat_id):
     with ThreadPoolExecutor(max_workers=3) as executor:
