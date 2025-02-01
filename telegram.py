@@ -290,9 +290,16 @@ def handler_req(chat_id, text):
         else:
             awvs.alive=True
         return f"修改子域名爆破成功,当前子域名存活扫描为{awvs.alive}"
+    elif command == 'restart':
+        threading.Thread(target=restart).start()
+        return f"重启成功!"
     else:
         return "当前不支持"
 
+    
+def restart():
+    time.sleep(20)
+    subprocess.run(['sudo', 'systemctl', 'restart', 'te_aw.service'])
     
     
 
