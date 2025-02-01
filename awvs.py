@@ -8,7 +8,24 @@ import socket
 from datetime import datetime, timedelta
 import pytz
 from time import strftime,gmtime
+from SQLiteCURD import  SQLiteCURD
+from oneforall import OneForAll
+import threading
+
 requests.packages.urllib3.disable_warnings(InsecureRequestWarning) 
+TELEGRAM_URL = "https://api.telegram.org/bot"
+TOKEN = ""
+
+def send_message(chat_id, text):
+    url = f"{TELEGRAM_URL}{TOKEN}/sendMessage"
+    payload = {
+        'chat_id': chat_id,
+        'text': text
+    }
+    res=requests.post(url, json=payload)
+    print(res.text)
+    
+    
 class awvs_api:
    
     def __init__(self,self_host,api_key,max_scan=10,wait_time=3):
@@ -23,6 +40,10 @@ class awvs_api:
         self.api_key=api_key
         self.total_target_url = self.self_host+'/api/v1/targets' 
         self.profiles_id=self.get_profiles_set("77")
+        self.sqlite=SQLiteCURD()
+        self.brute=False
+        self.alive=False
+        self.d_lock = threading.Lock()
         
     def get_scans_num(self,url, headers):
 
@@ -252,22 +273,27 @@ class awvs_api:
         if not hasattr(self, 'pool_list'):
             self.pool_list = []
         if isinstance(url, str):
-            self.pool_list.append(url)
+            self.sqlite.insert_task(url)
         elif isinstance(url, list):
-            self.pool_list.extend(url)
+            for url_index in url:
+                self.sqlite.insert_task(url_index)
         else:
             pass
-        self.pool_list = list(set(self.pool_list))
+        
         
     def get_pool(self):
         return self.pool_list
         
     def get_list_num(self):
-        return len(self.pool_list)
+        return self.sqlite.get_pending_task_count()
     def clean_all(self):
-        self.pool_list.clear()
+        self.sqlite.clear_task_table()
         return  True
-    
+        
+    def clean_d_all(self):
+        self.sqlite.clear_domain_table()
+        return  True
+        
     def get_now_scan(self):
         headers = {
             'X-Auth': self.api_key,
@@ -439,16 +465,69 @@ class awvs_api:
         while True:
             try:
                 scans_num = self.get_scans_num(self.dashbord_url, headers)
-                if (int(scans_num) <= int(self.max_scan)) and len(self.pool_list)>0:   
-                    next_scan=self.pool_list.pop(0)
-                    target_id = self.add_targets([next_scan], headers, self.total_target_url,f"api_pool_{int(time.time())}")
+                if (int(scans_num) <= int(self.max_scan)) and self.sqlite.get_pending_task_count()>0:   
+                    next_scan=self.sqlite.get_oldest_pending_task()
+                    target_id = self.add_targets([next_scan['url']], headers, self.total_target_url,f"api_pool_{int(time.time())}")
                     self.im_add_scans(self.add_scan_url, headers, self.total_target_url, 0, target_id,self.max_scan,self.wait_time)
-                    print(f"add {next_scan}!")
+                    self.sqlite.delete_task_by_id(next_scan['id'])
+                    print(f"add {next_scan['url']}!")
                 print(f"now scan {scans_num}")
                 time.sleep(self.wait_time)    
             except Exception as error:
                 time.sleep(self.wait_time) 
                 print("An exception occurred:", error) 
 
+    def domain_sub(self,domain,chat_id,d_id):
+        with self.d_lock:
+            test = OneForAll(target=domain)
+            test.dns = True
+            if(self.brute==True):
+                test.brute = True
+            else:
+                test.brute = False
+            test.req = True
+            test.takeover = False
+            if(self.alive==True):
+                test.alive = True
+            else:
+                test.alive = False
+            test.run()
+            results = test.datas
+            #print(results)
+            a=[]
+            for url in results:
+                #print(url['url'])  
+                if( url['title']!=None ) or  (url['title']!="None" ):
+                    a.append(url['url'])
+                 
+            results = list(set(a))   
+            len_result=0
+            if(len(results)<100):
+                self.add_pool(results)
+                len_result=len(results)
+            now_num=self.get_list_num()
+            text=f"{domain}子域名扫描完成,扫描到{len_result}子域名,并添加到awvs扫描队列成功 目前扫描队列有{now_num}"
+            self.sqlite.delete_domain_by_id(d_id)
+            send_message(chat_id, text)
+    
+    def domain_scan(self):
 
-
+        while True:
+            try:
+                self.sqlite.delet_time_out_domain(time.time()-3600)
+                count=self.sqlite.get_pending_domain_count()
+                run_count=self.sqlite.get_runing_domain_count()
+                print(run_count)
+                if  count!=None and count>0 and run_count==0:      
+                    next_scan=self.sqlite.get_oldest_pending_domain()
+                    
+                    thread=threading.Thread(target=self.domain_sub,args=(next_scan['domain'],next_scan['chat_id'],next_scan['id'],))
+                    thread.start()
+                    self.sqlite.update_domain_status(next_scan['id'],1,time.time())
+                    print(f"add  domain {next_scan['domain']}!")
+                    thread.join()
+                print(f"now domain {count}")
+                time.sleep(self.wait_time)    
+            except Exception as error:
+                time.sleep(self.wait_time) 
+                print("An exception occurred:", error) 
