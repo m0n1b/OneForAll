@@ -11,8 +11,8 @@ app = Flask(__name__)
 TELEGRAM_URL = "https://api.telegram.org/bot"
 TOKEN = ""
 
-awvs_url='https://3'
-awvs_key='1986'
+awvs_url='https://'
+awvs_key='198'
 awvs_scan = awvs_api(awvs_url,awvs_key)
 
 
@@ -22,6 +22,8 @@ thread = threading.Thread(target=awvs_scan.pool_scan)
 thread.start()
 thread1 = threading.Thread(target=awvs_scan.check_scan_timeout_loop)
 thread1.start()
+thread2 = threading.Thread(target=awvs_scan.domain_scan)
+thread2.start()
 
 
 def get_file_path(file_id):
@@ -132,11 +134,20 @@ def only_oneforall_scan(url,chat_id):
     send_file_to_telegram(chat_id, result_file)
 
 def get_file_scan(url,chat_id):
-    result=awvs_scan.get_pool()
+    result=awvs_scan.sqlite.get_pending_task_urls()
     result_string = '\n'.join(result)
     result_file = BytesIO(result_string.encode('utf-8'))
     result_file.name = f"{url}.txt" 
     send_file_to_telegram(chat_id, result_file)
+    
+    
+def get_file_scan_d(url,chat_id):
+    result=awvs_scan.sqlite.get_pending_domain_names()
+    result_string = '\n'.join(result)
+    result_file = BytesIO(result_string.encode('utf-8'))
+    result_file.name = f"{url}.txt" 
+    send_file_to_telegram(chat_id, result_file)
+
     
 def im_add_awvs_s(url,chat_id):
     awvs_scan.im_add_scans_out([url])
@@ -161,15 +172,10 @@ def process_index(index,chat_id):
     except:
         print("P e")
 
-def manage_thread_pool(stream,chat_id):
-    with ThreadPoolExecutor(max_workers=3) as executor:
-        # Map tasks to the executor
-        futures = {executor.submit(process_index, index,chat_id) for index in stream}
-        # Optionally, process results as they complete (if needed)
-        for future in as_completed(futures):
-            result = future.result()  # This will hold the result of each task
-
-    now_num = awvs_scan.get_list_num()
+def manage_thread_pool(stream,chat_id,awvs):
+    for index in stream:
+   
+        awvs.sqlite.insert_domain(index,chat_id)
 
 
 
@@ -184,7 +190,7 @@ def document_req(chat_id, stearm,file_name):
         now_num=awvs_scan.get_list_num()
         return f"运行批量添加文件到awvs完成,目前队列有{now_num}!" 
     if command == 'plzym.txt':
-        threading.Thread(target=manage_thread_pool, args=(stearm,chat_id,)).start()    
+        threading.Thread(target=manage_thread_pool, args=(stearm,chat_id,awvs_scan,)).start()    
         # for index in stearm:
             # index=index.strip("")
             # threading.Thread(target=oneforall_scan,args=(index,chat_id,)).start()
@@ -197,7 +203,7 @@ def handler_req(chat_id, text):
         return "输入不正确"
     command = parts[0]
     if command == 'help':
-        return "你现在可以使用我来进行半自动扫描! 目前的命令有  ljsm(立即扫描 将一个url地址立即添加到awvs扫描!)   zysm(子域扫描 首先爆破子域名  提取用title的子域名推送到awvs 但有队列)  lzysm(list子域名扫描 多个子域名扫描 使用,分割多个扫描 然后子域名 然后推awvs )  zym(单纯的子域名扫描  扫描完成后发个文件回来!) 如果发送了一个文件名为plsm.txt的文件 则会将文件内的每一行推送到扫描池!  status 获取当前正在的扫描数,getscan  将返回正在扫描的目标的txt文件,clear 清除所有的扫描;(如果要更新扫描 可以配合使用getscan 首先下载目标txt文件,然后clear清除 最后把更改的txt文件更名为plsm.txt 上传到机器人 就更新成功了) clear_r 删除所有扫描 vul查看当前漏洞简报;plzym.txt上传文件为批量子域名扫描!"
+        return "你现在可以使用我来进行半自动扫描! 目前的命令有  ljsm(立即扫描 将一个url地址立即添加到awvs扫描!)   zysm(子域扫描 首先爆破子域名  提取用title的子域名推送到awvs 但有队列)  lzysm(list子域名扫描 多个子域名扫描 使用,分割多个扫描 然后子域名 然后推awvs )  zym(单纯的子域名扫描  扫描完成后发个文件回来!) 如果发送了一个文件名为plsm.txt的文件 则会将文件内的每一行推送到扫描池!  status 获取当前正在的扫描数,getscan  将返回正在扫描的目标的txt文件,clear 清除所有的扫描;(如果要更新扫描 可以配合使用getscan 首先下载目标txt文件,然后clear清除 最后把更改的txt文件更名为plsm.txt 上传到机器人 就更新成功了) clear_r 删除所有扫描 vul查看当前漏洞简报;plzym.txt上传文件为批量子域名扫描;status_d获取域名扫描数;clear_d清空域名扫描;brute是否开启域名爆破;alive是否开启域名存活验证;get_scan_d获取当前域名扫描文件!"
     elif command == 'sm':
         if len(parts) < 2:
             return "参数不足"
@@ -254,15 +260,36 @@ def handler_req(chat_id, text):
         onlyym_thread = threading.Thread(target=get_file_scan,args=("getscan_result",chat_id,))
         onlyym_thread.start()    
         return f"正在获取扫描的所有内容,完成后会回复文件!"
+    elif command == 'getscan_d':
+        donlyym_thread = threading.Thread(target=get_file_scan_d,args=("getdomain_result",chat_id,))
+        donlyym_thread.start()    
+        return f"正在获取扫描的所有内容,完成后会回复文件!"
     elif command == 'status':
         scan_num=awvs_scan.get_list_num()
         return f"当前扫描数为{scan_num}"
+    elif command == 'status_d':
+        scan_num=awvs_scan.sqlite.get_pending_domain_count()
+        return f"当前子域名执行数为{scan_num}"
     elif command == 'clear':
         scan_return=awvs_scan.clean_all()
         scan_num=awvs_scan.get_list_num()
         return f"完成清除,当前扫描数为{scan_num}"
-
-        
+    elif command == 'clear_d':
+        scan_return=awvs_scan.clean_d_all()
+        scan_num=awvs_scan.sqlite.get_pending_domain_count()
+        return f"完成清除,当前子域名执行数为{scan_num}"
+    elif command == 'brute':
+        if(awvs.brute):
+            awvs.brute=False
+        else:
+            awvs.brute=True
+        return f"修改子域名爆破成功,当前子域名爆破为{awvs.brute}" 
+    elif command == 'alive':
+        if(awvs.alive):
+            awvs.alive=False
+        else:
+            awvs.alive=True
+        return f"修改子域名爆破成功,当前子域名存活扫描为{awvs.alive}"
     else:
         return "当前不支持"
 
